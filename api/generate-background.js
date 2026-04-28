@@ -15,11 +15,20 @@ function dataUrlToInlinePart(dataUrl) {
   };
 }
 
-async function callGemini(model, apiKey, body) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+function normalizeModelName(name) {
+  if (!name) return "";
+  return name.startsWith("models/") ? name : `models/${name}`;
+}
+
+async function callGeminiGenerateContent(model, apiKey, body) {
+  const modelPath = normalizeModelName(model);
+  const url = `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent`;
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
     body: JSON.stringify(body),
   });
   const data = await response.json();
@@ -28,6 +37,14 @@ async function callGemini(model, apiKey, body) {
     throw new Error(message);
   }
   return data;
+}
+
+async function listModels(apiKey) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+  const response = await fetch(url);
+  const data = await response.json();
+  if (!response.ok) return [];
+  return Array.isArray(data.models) ? data.models : [];
 }
 
 function extractText(data) {
@@ -60,11 +77,11 @@ async function styleSummary(apiKey, templates) {
     ],
   };
 
-  const models = ["gemini-2.0-flash", "gemini-2.5-flash"];
+  const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
   let lastError;
   for (const model of models) {
     try {
-      const data = await callGemini(model, apiKey, body);
+      const data = await callGeminiGenerateContent(model, apiKey, body);
       const text = extractText(data);
       if (text) return text;
     } catch (err) {
@@ -75,34 +92,95 @@ async function styleSummary(apiKey, templates) {
   return "电商直播视觉，配色柔和，版式清晰，适合做直播间背景图。";
 }
 
-async function generateImage(apiKey, prompt) {
+async function getAvailableImageModels(apiKey) {
+  const preferred = [
+    "gemini-3.1-flash-image-preview",
+    "gemini-2.5-flash-image",
+    "gemini-3-pro-image-preview",
+  ];
+
+  const models = await listModels(apiKey);
+  const generateContentModels = models
+    .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent"))
+    .map((m) => m.name || "")
+    .filter(Boolean);
+
+  const available = [];
+  for (const preferredName of preferred) {
+    const matched = generateContentModels.find((name) => name === `models/${preferredName}` || name.endsWith(`/${preferredName}`));
+    if (matched) available.push(matched);
+  }
+
+  const otherImageModels = generateContentModels.filter((name) => /image|banana/i.test(name) && !available.includes(name));
+  return [...available, ...otherImageModels, ...preferred.map((m) => `models/${m}`)];
+}
+
+async function generateImageNative(apiKey, prompt) {
   const body = {
     contents: [
       {
         parts: [{ text: prompt }],
       },
     ],
-    generationConfig: {
-      responseModalities: ["TEXT", "IMAGE"],
-    },
   };
 
-  const models = [
-    "gemini-2.0-flash-preview-image-generation",
-    "gemini-2.5-flash-image-preview",
-  ];
-
+  const models = await getAvailableImageModels(apiKey);
   let lastError;
+  const tried = [];
   for (const model of models) {
+    if (tried.includes(model)) continue;
+    tried.push(model);
     try {
-      const data = await callGemini(model, apiKey, body);
+      const data = await callGeminiGenerateContent(model, apiKey, body);
       const base64 = extractImageBase64(data);
       if (base64) return base64;
+      lastError = new Error(`${model} 未返回图片数据`);
     } catch (err) {
       lastError = err;
     }
   }
-  throw lastError || new Error("Gemini 未返回图片数据");
+  throw lastError || new Error("没有可用的 Gemini 图片生成模型");
+}
+
+async function generateImageOpenAICompat(apiKey, prompt) {
+  const models = ["gemini-2.5-flash-image", "gemini-3-pro-image-preview"];
+  let lastError;
+  for (const model of models) {
+    try {
+      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/images/generations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          prompt,
+          response_format: "b64_json",
+          n: 1,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error?.message || `OpenAI兼容接口请求失败：${response.status}`);
+      }
+      const base64 = data?.data?.[0]?.b64_json;
+      if (base64) return base64;
+      throw new Error(`${model} 未返回图片数据`);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error("OpenAI兼容接口未返回图片数据");
+}
+
+async function generateImage(apiKey, prompt) {
+  try {
+    return await generateImageNative(apiKey, prompt);
+  } catch (nativeError) {
+    console.warn("Native Gemini image generation failed, trying OpenAI-compatible endpoint:", nativeError.message);
+    return await generateImageOpenAICompat(apiKey, prompt);
+  }
 }
 
 module.exports = async function handler(req, res) {

@@ -1,4 +1,4 @@
-# PLUS Live Generator V5.1 (Gemini 免费 API 版)
+# PLUS Live Generator V5.2 (Gemini 免费 API 修正版)
 
 这是一个可部署到 GitHub + Vercel 的直播间视觉图生成器。
 

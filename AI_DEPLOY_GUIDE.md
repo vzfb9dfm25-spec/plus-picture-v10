@@ -1,4 +1,4 @@
-# AI_DEPLOY_GUIDE（V5.1 Gemini 免费 API 版）
+# AI_DEPLOY_GUIDE（V5.2 Gemini 免费 API 修正版）
 
 ## 你现在从哪里开始？
 你可以直接从“上传到 GitHub”开始。
