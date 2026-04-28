@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PLUS会员精选｜直播素材生成器</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-bg"></div>
+  <div class="app">
+    <header class="hero">
+      <div>
+        <div class="hero-badge">PLUS会员精选 · 直播素材工作台</div>
+        <h1>生成直播间视觉图</h1>
+        <p>上传模板 / Logo，输入活动信息，选择直播标题后，可在右侧预览区自由拖拽、缩放和编辑文字；还可接入 Gemini 免费 API 生成全新的直播间背景图。</p>
+      </div>
+      <div class="hero-tips">
+        <span>9:16预览</span>
+        <span>Gemini 免费API可接入</span>
+        <span>一键导出PNG</span>
+      </div>
+    </header>
+
+    <main class="main-layout">
+      <section class="panel form-panel">
+        <div class="panel-card">
+          <h2>1. 上传模板图片</h2>
+          <label class="upload-box">
+            <input type="file" id="template-upload" accept="image/*" multiple />
+            <span class="upload-title">点击上传模板图</span>
+            <span class="upload-desc">支持多张上传，点击下方缩略图可切换当前预览模板</span>
+          </label>
+          <div class="file-info" id="file-info">尚未选择文件；未上传时会使用默认占位背景</div>
+          <div class="inline-actions">
+            <button id="generate-ai-bg" class="primary-btn" type="button">AI生成背景图</button>
+            <span id="ai-bg-status" class="status-text">上传 1-3 张模板图后，可生成一张全新的直播间背景图</span>
+          </div>
+          <div class="thumb-list" id="thumb-list"></div>
+        </div>
+
+        <div class="panel-card">
+          <h2>2. 上传品牌 Logo</h2>
+          <label class="upload-box logo-upload-box">
+            <input type="file" id="logo-upload" accept="image/*" />
+            <span class="upload-title">点击上传品牌 Logo</span>
+            <span class="upload-desc">上传后会出现在右侧预览区，可拖拽、放大缩小</span>
+          </label>
+          <div class="file-info" id="logo-info">尚未选择 Logo</div>
+        </div>
+
+        <div class="panel-card">
+          <h2>3. 输入活动信息</h2>
+          <div class="field-grid two-cols">
+            <div class="field">
+              <label for="event-date">活动日期</label>
+              <input type="date" id="event-date" />
+            </div>
+            <div class="field">
+              <label for="account-name">账号名称</label>
+              <input type="text" id="account-name" value="PLUS会员精选" />
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <h2>4. 输入红包雨时间与主播名</h2>
+          <div class="field-grid two-cols-host">
+            <div class="field">
+              <label for="redpacket-start-time">红包雨开始时间</label>
+              <input type="time" id="redpacket-start-time" />
+            </div>
+            <div class="field">
+              <label for="host-name-1">主播1</label>
+              <input type="text" id="host-name-1" placeholder="请输入主播1名称" />
+            </div>
+            <div class="field">
+              <label for="host-name-2">主播2</label>
+              <input type="text" id="host-name-2" placeholder="请输入主播2名称" />
+            </div>
+          </div>
+          <p class="theme-tip">填写后，红包雨与主播名会同步生成到右侧预览区，并支持拖拽、缩放、双击编辑。</p>
+        </div>
+
+        <div class="panel-card">
+          <h2>5. 输入营销节点</h2>
+          <div class="theme-generate-row">
+            <input
+              type="text"
+              id="marketing-node"
+              placeholder="如：母亲节、520、618、夏日焕新季"
+            />
+            <button id="generate-theme" class="primary-btn" type="button">生成直播标题</button>
+            <button id="new-theme" class="secondary-btn" type="button">换一批</button>
+          </div>
+          <div class="theme-tip">点击任一标题后，会自动同步到右侧视觉图预览中；不满意可点“换一批”。</div>
+          <div id="generated-themes" class="generated-themes"></div>
+        </div>
+
+        <div class="panel-card">
+          <h2>6. 上传产品贴片</h2>
+          <label class="upload-box compact-upload">
+            <input type="file" id="product-overlay" accept="image/*" />
+            <span class="upload-title">上传产品贴片（可选）</span>
+            <span class="upload-desc">贴片也可在预览区拖拽和缩放</span>
+          </label>
+          <div class="file-info" id="product-info">尚未选择产品贴片</div>
+        </div>
+
+        <div class="panel-card editor-card">
+          <h2>7. 预览元素编辑</h2>
+          <div class="selected-layer-name" id="selected-layer-name">请先点击右侧预览区中的文字或图片</div>
+          <div class="editor-grid">
+            <div class="field">
+              <label for="font-size-control">文字大小</label>
+              <input type="number" id="font-size-control" min="12" max="220" step="1" value="58" />
+            </div>
+            <div class="field">
+              <label for="font-color-control">文字颜色</label>
+              <input type="color" id="font-color-control" value="#ffffff" />
+            </div>
+            <div class="field">
+              <label for="layer-width-control">元素宽度</label>
+              <input type="number" id="layer-width-control" min="40" max="1080" step="1" value="800" />
+            </div>
+            <div class="field">
+              <label for="layer-height-control">元素高度</label>
+              <input type="number" id="layer-height-control" min="20" max="1920" step="1" value="120" />
+            </div>
+          </div>
+          <div class="edit-actions">
+            <button id="add-text-layer" class="ghost-btn" type="button">新增文字层</button>
+            <button id="reset-selected-layer" class="ghost-btn" type="button">重置选中元素</button>
+            <button id="delete-selected-layer" class="danger-btn" type="button">删除选中元素</button>
+          </div>
+          <p class="theme-tip">操作提示：单击选中，拖动元素移动；拖动右下角圆点缩放；双击文字可直接改文案。</p>
+        </div>
+      </section>
+
+      <aside class="panel preview-panel">
+        <div class="panel-card sticky-card">
+          <div class="preview-header">
+            <div>
+              <h2>预览区</h2>
+              <p>当前模板、标题、Logo、红包雨与主播名都会实时同步</p>
+            </div>
+            <button id="download-btn" class="secondary-btn download" type="button">下载预览图</button>
+          </div>
+
+          <div class="canvas-wrap" id="canvas-wrap">
+            <div id="preview-stage" class="preview-stage" aria-label="直播间视觉图预览">
+              <img id="template-image" class="template-image" alt="模板预览" />
+              <div id="default-bg" class="default-bg">
+                <div class="default-bg-glow"></div>
+                <div class="default-bg-title">PLUS会员精选</div>
+                <div class="default-bg-text">上传模板后自动替换背景</div>
+              </div>
+              <div id="layer-root" class="layer-root"></div>
+            </div>
+            <canvas id="export-canvas" width="1080" height="1920" hidden></canvas>
+          </div>
+
+          <div class="preview-note">
+            建议比例：9:16。上传 Logo / 产品贴片后，点击预览区元素即可拖拽、缩放；文字双击即可编辑。
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
